@@ -1,8 +1,13 @@
 package ru.ilyasmirnov.android.draganddraw;
 
 import android.graphics.PointF;
+import android.os.Parcel;
+import android.os.Parcelable;
 
-public class Box {
+
+// Класс Box из проекта DragAndDraw (тест Parcelabler)
+
+public class Box implements Parcelable {
 
     private PointF mOrigin;
     private PointF mCurrent;
@@ -10,6 +15,12 @@ public class Box {
     public Box(PointF origin) {
         mOrigin = origin;
         mCurrent = origin;
+    }
+
+    // protected Box(Parcel in) {
+    public Box(Parcel in) {
+        mOrigin = (PointF) in.readValue(PointF.class.getClassLoader());
+        mCurrent = (PointF) in.readValue(PointF.class.getClassLoader());
     }
 
     public PointF getCurrent() {
@@ -23,4 +34,28 @@ public class Box {
     public PointF getOrigin() {
         return mOrigin;
     }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeValue(mOrigin);
+        dest.writeValue(mCurrent);
+    }
+
+    // @SuppressWarnings("unused")
+    public static final Parcelable.Creator<Box> CREATOR = new Parcelable.Creator<Box>() {
+        @Override
+        public Box createFromParcel(Parcel in) {
+            return new Box(in);
+        }
+
+        @Override
+        public Box[] newArray(int size) {
+            return new Box[size];
+        }
+    };
 }
