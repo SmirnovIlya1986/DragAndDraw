@@ -10,20 +10,21 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
+
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class BoxDrawingView extends View {
 
+    private static String INSTANCE_STATE = "instance_state";
+
     // private static String SAVED_CURRENT_BOX = "current_box";
     private static String SAVED_BOXEN = "boxen";
     // private static String SAVED_BOX_PAINT = "box_paint";
     // private static String SAVED_BACKGROUND_PAINT = "background_paint";
 
-    // private static final String TAG = "BoxDrawingView";
-    public static final String TAG = "BoxDrawingView";
+    private static final String TAG = "BoxDrawingView";
 
     private Box mCurrentBox;
     private List<Box> mBoxen = new ArrayList<>();
@@ -100,18 +101,16 @@ public class BoxDrawingView extends View {
 
     }
 
-
-    /*
     @Override
     protected Parcelable onSaveInstanceState() {
 
-
         Log.i(TAG, " BoxDrawingView.onSaveInstanceState()");
-
-        super.onSaveInstanceState();
+        Log.i(TAG, " ");
 
         Bundle bundle = new Bundle();
+        bundle.putParcelable(INSTANCE_STATE, super.onSaveInstanceState());
 
+        /*
         Box[] arrayOfBoxen = new Box[mBoxen.size()];
 
         for (int i = 0; i < mBoxen.size(); i++) {
@@ -128,8 +127,44 @@ public class BoxDrawingView extends View {
 
         bundle.putParcelableArray(SAVED_BOXEN, arrayOfBoxen);
 
-        return bundle;
+        */
 
+        bundle.putParcelableArrayList(SAVED_BOXEN, (ArrayList<Box>) mBoxen);
+
+        return bundle;
     }
-    */
+
+    @Override
+    protected void onRestoreInstanceState(Parcelable state) {
+
+        Log.i(TAG, " BoxDrawingView.onRestoreInstanceState()");
+        Log.i(TAG, " ");
+
+        if (state instanceof Bundle) {
+
+            Bundle bundle = (Bundle) state;
+
+            /*
+            Box[] arrayOfBoxen = (Box[]) bundle.getParcelableArray(SAVED_BOXEN);
+
+            mBoxen = new ArrayList<>();
+
+            for (int i = 0; i < arrayOfBoxen.length; i++) {
+                Log.i(TAG, "arrayOfBoxen[" + i + "] : originX = " + arrayOfBoxen[i].getOrigin().x);
+                Log.i(TAG, "arrayOfBoxen[" + i + "] : originY = " + arrayOfBoxen[i].getOrigin().y);
+                Log.i(TAG, "arrayOfBoxen[" + i + "] : currentX = " + arrayOfBoxen[i].getCurrent().x);
+                Log.i(TAG, "arrayOfBoxen[" + i + "] : currentY = " + arrayOfBoxen[i].getCurrent().y);
+                Log.i(TAG, " ");
+
+                mBoxen.add(arrayOfBoxen[i]);
+                }
+                */
+
+                mBoxen = bundle.getParcelableArrayList(SAVED_BOXEN);
+
+                super.onRestoreInstanceState(bundle.getParcelable(INSTANCE_STATE));
+
+                // return;
+        }
+    }
 }

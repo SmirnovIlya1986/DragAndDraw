@@ -17,9 +17,8 @@ public class Box implements Parcelable {
         mCurrent = origin;
     }
 
-    // protected Box(Parcel in) {
     public Box(Parcel in) {
-        mOrigin = (PointF) in.readValue(PointF.class.getClassLoader());
+    mOrigin = (PointF) in.readValue(PointF.class.getClassLoader());
         mCurrent = (PointF) in.readValue(PointF.class.getClassLoader());
     }
 

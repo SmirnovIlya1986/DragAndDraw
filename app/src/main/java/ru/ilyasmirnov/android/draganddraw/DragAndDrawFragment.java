@@ -11,14 +11,6 @@ import android.view.ViewGroup;
 // public class DragAndDrawFragment extends ListFragment {
     public class DragAndDrawFragment extends Fragment {
 
-
-
-
-       private static String SAVED_BOX_DRAWING_VIEW = "box_drawing_view";
-
-
-
-
     public static DragAndDrawFragment newInstance() {
         return new DragAndDrawFragment();
     }
@@ -32,9 +24,4 @@ import android.view.ViewGroup;
 
     }
 
-    @Override
-    public void onSaveInstanceState(@NonNull Bundle outState) {
-        super.onSaveInstanceState(outState);
-
-    }
 }
