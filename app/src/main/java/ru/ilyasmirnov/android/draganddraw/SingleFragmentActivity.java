@@ -15,7 +15,6 @@ public abstract class SingleFragmentActivity extends AppCompatActivity {
         return R.layout.activity_fragment;
     }
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -30,5 +29,4 @@ public abstract class SingleFragmentActivity extends AppCompatActivity {
                     .add(R.id.fragment_container, fragment)
                     .commit();        }
     }
-
 }

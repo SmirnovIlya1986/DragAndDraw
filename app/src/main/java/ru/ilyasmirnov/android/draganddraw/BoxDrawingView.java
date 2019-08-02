@@ -7,10 +7,8 @@ import android.graphics.PointF;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,18 +16,36 @@ import java.util.List;
 public class BoxDrawingView extends View {
 
     private static String INSTANCE_STATE = "instance_state";
-
-    // private static String SAVED_CURRENT_BOX = "current_box";
     private static String SAVED_BOXEN = "boxen";
-    // private static String SAVED_BOX_PAINT = "box_paint";
-    // private static String SAVED_BACKGROUND_PAINT = "background_paint";
-
-    private static final String TAG = "BoxDrawingView";
 
     private Box mCurrentBox;
     private List<Box> mBoxen = new ArrayList<>();
     private Paint mBoxPaint;
     private Paint mBackgroundPaint;
+
+    private boolean mTouch = false;
+    private boolean mMultiTouch = false;
+
+    private int[] mIdBank = new int[10];
+    private ArrayList <Integer> mIdBankList = new ArrayList<>(10);
+
+    private PointF mCurrent;
+
+    private float mPointerIndex0X;
+    private float mPointerIndex0Y;
+
+    private double mDefaultAngle = 0;
+    private double mRotateAngle = 0;
+
+    private StringBuilder mSb = new StringBuilder();
+    private String mCoordinatesText = "\t" + getResources().getText(R.string.coordinates_text);
+    private String mResult = "";
+
+    private Callbacks mCallbacks;
+
+    public interface Callbacks {
+        void onCoordinatesUpdated(String coordinates);
+    }
 
     // Используется при создании, представления в коде
     public BoxDrawingView(Context context) {
@@ -40,94 +56,195 @@ public class BoxDrawingView extends View {
     public BoxDrawingView(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-        // Прямоугольники рисуются полупрозрачным красным цветом (ARGB)
+        // Цвет прямоугольников
         mBoxPaint = new Paint();
-        mBoxPaint.setColor(0x22ff0000);
+        mBoxPaint.setColor(getResources().getColor(R.color.colorRectangles));
 
-        // Фон закрашивается серовато-белым цветом
+        // Цвет фона
         mBackgroundPaint = new Paint();
-        mBackgroundPaint.setColor(0xfff8efe0);
+        mBackgroundPaint.setColor(getResources().getColor(R.color.colorRectanglesBackground));
+
+        mCallbacks = (Callbacks) context;
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        PointF current = new PointF(event.getX(), event.getY());
-        String action = "";
 
-        switch (event.getAction()) {
+        // событие
+        int actionMask = event.getActionMasked();
+
+        // число касаний
+        int pointerCount = event.getPointerCount();
+
+        if (!mMultiTouch) {
+            mCurrent = new PointF(event.getX(), event.getY());
+        }
+
+        switch (actionMask) {
             case MotionEvent.ACTION_DOWN:
-                action = "ACTION_DOWN";
                 // Сброс текущего состояния
-                mCurrentBox = new Box(current);
+                mCurrentBox = new Box(mCurrent, 0);
                 mBoxen.add(mCurrentBox);
+                mTouch = true;
+                mMultiTouch = false;
                 break;
-            case MotionEvent.ACTION_MOVE:
-                action = "ACTION_MOVE";
-                if (mCurrentBox != null) {
-                    mCurrentBox.setCurrent(current);
-                    invalidate();
+
+            case MotionEvent.ACTION_POINTER_DOWN:
+                mIdBankList.clear();
+                mMultiTouch = true;
+
+                if (event.getPointerId(0) == 0 && event.getPointerId(1) == 1) {
+                    mIdBankList.add(0,0);
+                    mIdBankList.add(1,1);
+                    mDefaultAngle = getAngle(event) - mRotateAngle;
                 }
                 break;
-            case MotionEvent.ACTION_UP:
-                action = "ACTION_UP";
-                mCurrentBox = null;
+
+            case MotionEvent.ACTION_MOVE:
+                mSb.setLength(0);
+                mIdBankList.clear();
+
+                for (int i = 0; i < 5; i++) {
+                    mSb.append("Index = " + i);
+                    if (i < pointerCount) {
+                        mSb.append(", ID = " + event.getPointerId(i));
+                        mSb.append(", X = " + event.getX(i));
+                        mSb.append(", Y = " + event.getY(i));
+
+                        mIdBank[i] = event.getPointerId(i);
+                        mIdBankList.add(event.getPointerId(i));
+
+                    } else {
+                        mSb.append(", ID = ");
+                        mSb.append(", X = ");
+                        mSb.append(", Y = ");
+                    }
+                    mSb.append("\r\n");
+                }
+
+                if (mIdBankList.contains(1)) {
+                    mRotateAngle = getAngle(event) - mDefaultAngle;
+                }
+
+                if (mCurrentBox != null) {
+                    mCurrentBox.setCurrent(mCurrent);
+                    mCurrentBox.setRotateAngle(mRotateAngle);
+                    invalidate();
+                }
+
+                if (event.getPointerId(0) != 0 && event.getPointerId(0) != 1) {
+                    mCurrentBox = null;
+                    mDefaultAngle = 0;
+                    mRotateAngle = 0;
+                }
                 break;
+
+            case MotionEvent.ACTION_UP:
+                mCurrentBox = null;
+
+                mTouch = false;
+                mMultiTouch = false;
+                mDefaultAngle = 0;
+                mRotateAngle = 0;
+
+                mSb.setLength(0);
+
+                break;
+
+            case MotionEvent.ACTION_POINTER_UP:
+                if (event.getPointerId(0) != 0) {
+                    mCurrentBox = null;
+                    mDefaultAngle = 0;
+                    mRotateAngle = 0;
+                    break;
+                }
+                break;
+
             case MotionEvent.ACTION_CANCEL:
-                action = "ACTION_CANCEL";
                 mCurrentBox = null;
                 break;
         }
 
-        Log.i(TAG, action + " at x=" + current.x +
-                ", y=" + current.y);
+        mResult = mCoordinatesText;
+
+        if (mTouch) {
+            mResult += "\n" + mSb.toString();
+        }
+
+        mCallbacks.onCoordinatesUpdated(mResult);
 
         return true;
     }
 
+    private double getAngle(MotionEvent event) {
+
+        if (mPointerIndex0X == 0 && mPointerIndex0Y == 0) {
+            mPointerIndex0X = event.getX(0);
+            mPointerIndex0Y = event.getY(0);
+        }
+
+        int pointerIndex = mIdBankList.indexOf(1);
+
+        float pointerIndexX = event.getX(pointerIndex);
+        float pointerIndexY = event.getY(pointerIndex);
+
+        double angle = Math.toDegrees(Math.acos((pointerIndexX - mPointerIndex0X)
+                / Math.sqrt(Math.pow(pointerIndexX - mPointerIndex0X, 2)
+                + Math.pow(pointerIndexY - mPointerIndex0Y, 2))));
+
+        if (mPointerIndex0X <= pointerIndexX && mPointerIndex0Y == pointerIndexY) {
+            return 0;
+        }
+
+        if (mPointerIndex0X == pointerIndexX && mPointerIndex0Y > pointerIndexY) {
+            return 90;
+        }
+
+        if (mPointerIndex0X > pointerIndexX && mPointerIndex0Y == pointerIndexY) {
+            return 180;
+        }
+
+        if (mPointerIndex0X > pointerIndexX && mPointerIndex0Y < pointerIndexY) {
+            return 360 - angle;
+        }
+
+        if (mPointerIndex0X == pointerIndexX && mPointerIndex0Y < pointerIndexY) {
+            return 270;
+        }
+
+        if (mPointerIndex0X < pointerIndexX && mPointerIndex0Y < pointerIndexY) {
+            return 360 - angle;
+        }
+
+        return angle;
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
+
         // Заполнение фона
         canvas.drawPaint(mBackgroundPaint);
 
         for(Box box : mBoxen) {
+
+            canvas.rotate( - (float) box.getRotateAngle(), box.getCurrent().x , box.getCurrent().y);
+
             float left = Math.min(box.getOrigin().x, box.getCurrent().x);
             float right = Math.max(box.getOrigin().x, box.getCurrent().x);
             float top = Math.min(box.getOrigin().y, box.getCurrent().y);
             float bottom = Math.max(box.getOrigin().y, box.getCurrent().y);
+
             canvas.drawRect(left, top, right, bottom, mBoxPaint);
 
+            canvas.rotate((float) box.getRotateAngle(), box.getCurrent().x , box.getCurrent().y);
         }
-
-
     }
 
     @Override
     protected Parcelable onSaveInstanceState() {
 
-        Log.i(TAG, " BoxDrawingView.onSaveInstanceState()");
-        Log.i(TAG, " ");
-
         Bundle bundle = new Bundle();
         bundle.putParcelable(INSTANCE_STATE, super.onSaveInstanceState());
-
-        /*
-        Box[] arrayOfBoxen = new Box[mBoxen.size()];
-
-        for (int i = 0; i < mBoxen.size(); i++) {
-            arrayOfBoxen[i] = mBoxen.get(i);
-        }
-
-        for (int i = 0; i < arrayOfBoxen.length; i++) {
-            Log.i(TAG, "arrayOfBoxen[" + i + "] : originX = " + arrayOfBoxen[i].getOrigin().x);
-            Log.i(TAG, "arrayOfBoxen[" + i + "] : originY = " + arrayOfBoxen[i].getOrigin().y);
-            Log.i(TAG, "arrayOfBoxen[" + i + "] : currentX = " + arrayOfBoxen[i].getCurrent().x);
-            Log.i(TAG, "arrayOfBoxen[" + i + "] : currentY = " + arrayOfBoxen[i].getCurrent().y);
-            Log.i(TAG, " ");
-        }
-
-        bundle.putParcelableArray(SAVED_BOXEN, arrayOfBoxen);
-
-        */
 
         bundle.putParcelableArrayList(SAVED_BOXEN, (ArrayList<Box>) mBoxen);
 
@@ -137,34 +254,10 @@ public class BoxDrawingView extends View {
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
 
-        Log.i(TAG, " BoxDrawingView.onRestoreInstanceState()");
-        Log.i(TAG, " ");
-
         if (state instanceof Bundle) {
-
             Bundle bundle = (Bundle) state;
-
-            /*
-            Box[] arrayOfBoxen = (Box[]) bundle.getParcelableArray(SAVED_BOXEN);
-
-            mBoxen = new ArrayList<>();
-
-            for (int i = 0; i < arrayOfBoxen.length; i++) {
-                Log.i(TAG, "arrayOfBoxen[" + i + "] : originX = " + arrayOfBoxen[i].getOrigin().x);
-                Log.i(TAG, "arrayOfBoxen[" + i + "] : originY = " + arrayOfBoxen[i].getOrigin().y);
-                Log.i(TAG, "arrayOfBoxen[" + i + "] : currentX = " + arrayOfBoxen[i].getCurrent().x);
-                Log.i(TAG, "arrayOfBoxen[" + i + "] : currentY = " + arrayOfBoxen[i].getCurrent().y);
-                Log.i(TAG, " ");
-
-                mBoxen.add(arrayOfBoxen[i]);
-                }
-                */
-
-                mBoxen = bundle.getParcelableArrayList(SAVED_BOXEN);
-
-                super.onRestoreInstanceState(bundle.getParcelable(INSTANCE_STATE));
-
-                // return;
+            mBoxen = bundle.getParcelableArrayList(SAVED_BOXEN);
+            super.onRestoreInstanceState(bundle.getParcelable(INSTANCE_STATE));
         }
     }
 }
